@@ -33,7 +33,7 @@ runs:
 
     - name: Get chart info
       id: info
-      run: |
+      run: | # zizmor: ignore[github-env]
         CHART_YAML="$INPUT_CHART_DIR/Chart.yaml"
 
         CHART_NAME=$(yq .name "$CHART_YAML")
@@ -72,6 +72,7 @@ runs:
       with:
         ref: ${{ inputs.pages-branch }}
         path: ${{ env.PAGES_WORKDIR }}
+        persist-credentials: true
 
     - name: Add chart to gh-pages
       run: |
@@ -90,7 +91,7 @@ runs:
 
     - name: Commit gh-pages
       run: |
-        COMMIT_USER="${INPUT_GITHUB_USER:-${{ github.actor }}}"
+        COMMIT_USER="${INPUT_GITHUB_USER:-${GITHUB_ACTOR}}"
         git config user.name "$COMMIT_USER"
         git config user.email "${COMMIT_USER}@users.noreply.github.com"
         git add --all
