@@ -1,0 +1,110 @@
+name: Helm GitHub Pages
+description: Publish Helm charts to GitHub Pages
+
+inputs:
+  chart-dir:
+    description: Chart directory
+    required: true
+    default: helm-chart
+  github-user:
+    description: Username to use in commits, default is github.actor
+    required: true
+    default: ''
+  pages-branch:
+    description: Branch name containing the GitHub Pages content, must already exist
+    required: true
+    default: gh-pages
+  push:
+    description: Whether to push to GitHub Pages, set to false for a dry-run
+    required: true
+    default: "true"
+
+outputs:
+  chart-name:
+    description: Chart name
+    value: ${{ steps.info.outputs.chart-name }}
+  chart-version:
+    description: Chart version
+    value: ${{ steps.info.outputs.chart-version }}
+
+runs:
+  using: composite
+  steps:
+
+    - name: Get chart info
+      id: info
+      run: |
+        CHART_YAML="$INPUT_CHART_DIR/Chart.yaml"
+
+        CHART_NAME=$(yq .name "$CHART_YAML")
+        if [ -z "$CHART_NAME" ]; then
+          echo "Failed to get chart name from $CHART_YAML"
+          exit 1
+        fi
+
+        CHART_VERSION=$(yq .version "$CHART_YAML")
+        if [ -z "$CHART_VERSION" ]; then
+          echo "Failed to get chart version from $CHART_YAML"
+          exit 1
+        fi
+
+        echo CHART_DIR="$INPUT_CHART_DIR" >> $GITHUB_ENV
+        echo CHART_NAME="$CHART_NAME" >> $GITHUB_ENV
+        echo CHART_VERSION="$CHART_VERSION" >> $GITHUB_ENV
+
+        echo CHART_FILENAME="${CHART_NAME}-${CHART_VERSION}.tgz" >> $GITHUB_ENV
+        # Needs to be under the current checkout
+        echo PAGES_WORKDIR="gh-pages-$(openssl rand -hex 16)" >> $GITHUB_ENV
+
+        echo "chart-name="$CHART_NAME" >> $GITHUB_OUTPUT
+        echo "chart-version="$CHART_VERSION" >> $GITHUB_OUTPUT
+      shell: bash
+      env:
+        INPUT_CHART_DIR: ${{ inputs.chart-dir }}
+
+    - name: Build chart
+      run: |
+        helm package "$CHART_DIR"
+      shell: bash
+
+    - name: Checkout gh-pages
+      uses: actions/checkout@v6
+      with:
+        ref: ${{ inputs.pages-branch }}
+        path: ${{ env.PAGES_WORKDIR }}
+
+    - name: Add chart to gh-pages
+      run: |
+        shopt -s nullglob
+        if [ -z "$CHART_FILENAME" ]; then
+          echo "Chart not found: $CHART_FILENAME"
+          exit 1
+        fi
+        if [ -f "$PAGES_WORKDIR/$CHART_FILENAME" ]; then
+          echo "Chart $CHART_FILENAME already exists"
+          exit 1
+        fi
+        mv "$CHART_FILENAME" "$PAGES_WORKDIR"
+        helm repo index "$PAGES_WORKDIR"
+      shell: bash
+
+    - name: Commit gh-pages
+      run: |
+        COMMIT_USER="${INPUT_GITHUB_USER:-${{ github.actor }}}"
+        git config user.name "$COMMIT_USER"
+        git config user.email "${COMMIT_USER}@users.noreply.github.com"
+        git add --all
+        git commit -m "Update chart"
+      working-directory: ${{ env.PAGES_WORKDIR }}
+      shell: bash
+      env:
+        INPUT_GITHUB_USER: ${{ inputs.github-user }}
+
+    - name: Push gh-pages
+      if: inputs.push == 'true'
+      run: |
+        git push origin "$INPUT_PAGES_BRANCH"
+      working-directory: ${{ env.PAGES_WORKDIR }}
+      shell: bash
+      env:
+        INPUT_PAGES_BRANCH: ${{ inputs.pages-branch }}
