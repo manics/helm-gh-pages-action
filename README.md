@@ -31,7 +31,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Publish to gh-pages
-        uses: manics/helm-gh-pages-action@main
+        uses: manics/helm-gh-pages-action@v0.1.0
         with:
           # Directory in this repository containing the Helm chart
           chart-dir: chart
@@ -47,7 +47,7 @@ Only publish tags, and automatically update the chart version
           git diff
 
       - name: Publish to gh-pages
-        uses: manics/helm-gh-pages-action@main
+        uses: manics/helm-gh-pages-action@v0.1.0
         if: startsWith(github.ref, 'refs/tags/')
         with:
           chart-dir: chart
