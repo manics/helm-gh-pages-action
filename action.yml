@@ -70,7 +70,7 @@ runs:
       shell: bash
 
     - name: Checkout gh-pages
-      uses: actions/checkout@v6
+      uses: actions/checkout@v6 # zizmor: ignore[unpinned-uses]
       with:
         ref: ${{ inputs.pages-branch }}
         path: ${{ env.PAGES_WORKDIR }}
